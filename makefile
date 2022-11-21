@@ -1,2 +1,2 @@
-bwtsearch: bwtsearch.c
-	gcc bwtsearch.c -o bwtsearch -O2 -ftree-parallelize-loops=4 -floop-parallelize-all
+bwtsearch: bwtsearch.c dict.c
+	gcc bwtsearch.c dict.c -o bwtsearch -O2

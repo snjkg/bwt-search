@@ -2,32 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include "bwtsearch.h"
+#include "dict.h"
 
 #define RAM_COPY_SIZE 8388608
 #define RAM_COPY_SIZE_OUTPUT 11782912
 #define HASHTABLE_SIZE 16384
 
-//#define MEM_OCC_MAX_SIZE 1048576
-struct Index_header {
-//    unsigned int newline_count;
-    unsigned int bwt_length;
-    unsigned int occ_4_byte;
-    unsigned int c_table[96];
-};
-struct Memory_copy {
-//    unsigned int newline_count; 
-    unsigned char *c;
-
-    unsigned int start;
-    unsigned int length;
-    unsigned int end;
-};
-
-struct Dict_entry {
-    int* key;
-    int key_count;
-    struct Result_entry** result_entry;
-};
 struct Result_entry {
     char* partial;
     unsigned int start_pos;
@@ -37,98 +18,7 @@ struct Result {
     char* partial;
     unsigned int start_pos;
 };
-unsigned int hashCode( unsigned int bwt_length,unsigned int key){
-    if(bwt_length < HASHTABLE_SIZE){
-        return key;
-    } 
 
-    return key/(bwt_length/(HASHTABLE_SIZE-1));
-}
-int findInDict(struct Dict_entry *buckets[],unsigned int bwt_length, unsigned int key){
-    
-    int bucket = hashCode(bwt_length,key);
-    struct Dict_entry* node =  buckets[bucket];
-
-    if(node == NULL)    {
-        return -1;
-    }
-    int i = 0;
-    for(i = 0;i< (*node).key_count;i++){
-        int val = ((*node).key)[i];
-        if(val  == key){
-            return 1 ;
-        }
-        if(val  > key){
-            return -1; 
-        }
-    }
-    return -1;
-}
-int addToDict(struct Dict_entry *buckets[],unsigned int bwt_length, unsigned int newkey, struct Result_entry * result_entry){
-
-    int i;
-    int bucket = hashCode(bwt_length,newkey);
-    
-    struct Dict_entry* node;
-    
-    if (buckets[bucket] == NULL){
-      
-        node =   (struct Dict_entry*) calloc (1,sizeof (struct Dict_entry));
-        buckets[bucket] = node;
-        
-        int * key = (unsigned int *) calloc (1, sizeof(int));
-        (*node).key= key;
-        ((*node).key)[0] = newkey;
-        (*node).key_count = 1;
-        //printf("h0 %d %d\n",(*node).key_count,bucket);
-        if (result_entry != NULL){
-           (*node).result_entry  = (struct Result_entry **) malloc(1*sizeof(struct Result_entry *));
-            struct Result_entry ** res = (*node).result_entry;
-
-            res[0] = result_entry;
-        }
-    } else {
-
-        node = buckets[bucket];
-        int valToInsert = newkey;
-        struct Result_entry *reToInsert = result_entry;
-
-        for(i = 0;i< (*node).key_count;i++){
-            int key = ((*node).key)[i];
-            if(key == newkey){
-                return 0;
-            } else if(valToInsert  < key){
-                ((*node).key)[i] = valToInsert; 
-                valToInsert = key;
-                if (result_entry != NULL){
-                    struct Result_entry * tmp = ((*node).result_entry)[i];
-                    ((*node).result_entry)[i] = reToInsert;
-                    reToInsert = tmp;
-                }
-            }
-        }
-        (*node).key_count = (*node).key_count + 1;
-        (*node).key = (int *) realloc( (*node).key , (*node).key_count * sizeof(int) );
-        
-        ((*node).key)[(*node).key_count-1] = valToInsert;
-        if (result_entry != NULL){  
-            int count = (*node).key_count;
-            //printf ("%p %d\n",reToInsert, count * sizeof(struct Result_entry *));
-            (*node).result_entry  = (struct Result_entry **) realloc((*node).result_entry,  count * sizeof(struct Result_entry *)  );
-            struct Result_entry ** res = (*node).result_entry;
-            res[((*node).key_count)-1] = reToInsert;
-            //printf("aaa%paaa",((*node).result_entry)[(*node).key_count-1] );
-        }
-    }
-    
-
-    //(*node).key = newkey;
-    //(*node).value = newvalue;   
-    //(*node).next = buckets[bucket];
-    
-    return 0;
-}
-int generate_index ( const char* bwt_filename, const char* idx_filename);
 //inline static unsigned char char_to_index(unsigned char in_char);
 //inline static unsigned char index_to_char(unsigned char index);
 unsigned char index_to_char[96] = {10,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51
@@ -139,17 +29,7 @@ unsigned char char_to_index[127] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44
 ,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74
 ,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95};
-int print_array(int *arr,int arr_len);
-inline static unsigned int occ(struct Memory_copy mc,FILE *idx_fp, FILE *bwt_fp, struct Index_header ih,unsigned char symbol_index, unsigned int pos,unsigned int interval);
-//inline static unsigned int mem_occ(struct Memory_copy *mc,FILE *idx_fp, FILE *bwt_fp, struct Index_header ih,unsigned char symbol_index, unsigned int pos,unsigned int interval,unsigned int prev_symbol_index,struct Memory_occ *mo, unsigned int * new_start);
-inline static unsigned int fprint_decoded_line(struct Memory_copy  mc,FILE *opt_fp, FILE *idx_fp, FILE *bwt_fp, FILE* opt_random_fp, struct Index_header ih, unsigned int line_br_pos,unsigned int interval, unsigned int file_last_position, unsigned int file_occ_entries); 
-inline static unsigned int get_line_num(struct Memory_copy   mc,FILE *idx_fp, FILE *bwt_fp, struct Index_header ih, unsigned int any_pos,unsigned int interval);
-inline static struct Result * get_line_num_with_result(struct Memory_copy  mc,FILE *idx_fp, FILE *bwt_fp, struct Index_header ih, unsigned int any_pos,unsigned int interval);
-inline static unsigned char get_char (struct Memory_copy  mc,FILE *bwt_fp,unsigned int pos);
-inline static unsigned int print_decoded_line_until(struct Memory_copy   mc,FILE *idx_fp, FILE *bwt_fp, struct Index_header ih, unsigned int line_br_pos,unsigned int until_pos,unsigned int interval);
-int print_array_l(long *arr,int arr_len);
-//int generate_mem_occ ( FILE *bwt_fp, struct Memory_occ * memory_occ, struct Index_header ih, unsigned int * new_start, unsigned int partitions);
-int generate_infile_occ ( FILE * opt_fp, FILE * bwt_fp, struct Index_header ih);
+
 int int_compare (const void * a, const void * b) {
     int arg1 = *(const int*)a;
     int arg2 = *(const int*)b;
